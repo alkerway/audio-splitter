@@ -1,6 +1,6 @@
 import * as child_process from "child_process"
 import {Request, Response} from "express"
-import {MulterUpload} from "../config/multer";
+import { MulterUpload } from "../config/multer";
 
 export const upload = async (req: Request, res: Response) => {
     MulterUpload(req, res, (err: Error) => {
@@ -10,14 +10,14 @@ export const upload = async (req: Request, res: Response) => {
         const originalName = req.file.originalname
         // const dirName = originalName.split(".")[0] + generateId(6)
         const pathToSpleeterDir = __dirname.split("/").slice(0, -1).join("/")
-        const stems = 4
+        const stems = 5
         const outputDirectory = req.file.filename.split(".")[0]
         const command = `sh ${pathToSpleeterDir}/spleeterwork/run-spleeter.bash` +
             ` -f=${req.file.filename}` +
             ` -s=${stems}` +
             ` -o=${outputDirectory}` +
             ` --spleeterpath=${pathToSpleeterDir}/spleeterwork` +
-            ` -u=$(id -u)`
+            ` -u=1000`
         console.log(command)
         child_process.exec(command, (error, stdout, stderr) => {
             if (error) {
