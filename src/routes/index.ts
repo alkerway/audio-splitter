@@ -5,5 +5,5 @@ export const register = ( app: express.Application ) => {
     app.get( "/", ( req: any, res ) => {
         res.send("ayyyyy")
     } );
-    app.get("/upload", Api.upload)
+    app.post("/upload", Api.upload)
 };
