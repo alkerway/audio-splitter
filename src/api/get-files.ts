@@ -3,7 +3,7 @@ import ProcessStore from "../controllers/processes"
 import { Statuses } from "../models"
 
 export const getfiles = async (req: Request, res: Response) => {
-    const processname = req.body && req.body.name
+    const processname = req.query && req.query.name
     // console.log(req.body)
     if (processname) {
         const process = ProcessStore.getById(processname)
@@ -14,7 +14,6 @@ export const getfiles = async (req: Request, res: Response) => {
                     message: "not ready yet"
                 })
             }
-            console.log(filepath)
             res.download(filepath)
             process.status = Statuses.SENT
             process.clean()
