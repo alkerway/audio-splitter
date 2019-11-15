@@ -8,8 +8,11 @@ const port = 8880
 app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000")
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE")
+    res.setHeader("Content-Type", "application/json")
     next()
 });
+
+app.use(express.json())
 
 routes.register( app )
 app.use(cors())

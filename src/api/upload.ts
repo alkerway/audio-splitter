@@ -9,13 +9,13 @@ export const upload = async (req: Request, res: Response) => {
             return res.status(500).json(err)
         }
         const pathToSpleeterDir = __dirname.split("/").slice(0, -1).join("/")
-        const stems = 5
+        const stems = 2
         const processConfig: AudioProcessConfig = {
             name: req.file.filename,
             pathToSpleeterDir,
             stems
         }
         ProcessStore.runNew(processConfig)
-        res.status(200).send("Uploaded, starting task")
+        res.status(200).send({name: req.file.filename})
     })
 }
