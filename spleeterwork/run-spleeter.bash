@@ -38,7 +38,7 @@ containerid=$(sudo docker run -d \
     separate -i /input/${FILENAME} -o /output -p spleeter:${STEMS}stems)
 
 status_code="$(docker container wait $containerid)"
-echo "Status code of last run command: ${status_code}"
+echo "Status code: ${status_code}"
 if [ "$status_code" -ne 0 ]
 then
   mkdir -p ${SPLEETERPATH}/logs/${OUTPUTFOLDER}
