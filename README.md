@@ -14,4 +14,4 @@ https://github.com/alkerway/audio-splitter-ui
 3. Run `npm install`
 4. Run `npm build`
 5. All output is in the `./dist` directory - serve `index.js`
-6. Use with [front-end above](https://github.com/alkerway/audio-splitter) or your own
+6. Use with [front-end above](https://github.com/alkerway/audio-splitter-ui) or your own
