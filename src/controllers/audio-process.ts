@@ -28,30 +28,30 @@ export class AudioProcess {
     }
 
     public run = () => {
-        const runPromise = this.splitAudio()
-            .catch((logs) => {
-                // write to file
-                console.log(logs)
-            })
+        this.splitAudio()
             .then(() => {
+                console.log("building partial")
                 if (this.remove.size) {
                     return this.buildPartialTracks()
                 }
             })
-            .catch((logs: string) => {
-                // write to file
-                console.log(logs)
-            })
             .then(this.removeExtraFiles)
             .then(() => {
+                console.log("zipping")
                 this.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
                     `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`)
             })
             .then(() => {
                 this.status = Statuses.COMPLETE
+            })
+            .catch((err) => {
+                console.log("on catch error")
+                this.writeErrorToLogFile(err)
+            })
+            .finally(() => {
+                console.log("scheduling cleanup")
                 this.scheduleCleanup(CLEANUP_AFTER_COMPLETE)
             })
-        return runPromise
     }
 
     public scheduleCleanup = (seconds: number) => {
@@ -65,7 +65,7 @@ export class AudioProcess {
         const fileToUnlink = `${this.pathToSpleeterDir}/spleeterwork/input/${this.name}`
         const dirToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`
         const zipToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
-        const logToUnlink = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}/${this.name}.log`
+        const logToUnlink = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}`
         Promise.all([
             this.removeAtPath(fileToUnlink),
             this.removeAtPath(dirToUnlink),
@@ -79,7 +79,7 @@ export class AudioProcess {
         return new Promise<void>((resolve, reject) => {
             rimraf(path, (err) => {
                 if (err) {
-                    return reject(err)
+                    reject(err)
                 } else {
                     resolve()
                 }
@@ -91,11 +91,32 @@ export class AudioProcess {
         if (this.status === Statuses.COMPLETE || this.status === Statuses.SENT) {
             const filepath = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
             return filepath
-        } else if (this.status === Statuses.ERRORRED) {
+        } else if (this.status === Statuses.ERRORED) {
             return `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}/${this.name}.log`
         } else {
             return null
         }
+    }
+
+    private writeErrorToLogFile = (text: string) => {
+        this.status = Statuses.ERRORED
+        console.log("writing to log file", text)
+        const errorDir = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}`
+        const errorPath = `${errorDir}/${this.name}.log`
+        return new Promise<void>((resolve, reject) => {
+            fs.mkdir(errorDir, (err) => {
+                if (err && err.code !== "EEXIST") {
+                    console.log("error making log dir", err)
+                } else {
+                    fs.writeFile(errorPath, text, (fileWriteErr) => {
+                        if (fileWriteErr) {
+                            console.log("Error writing to log file!!", fileWriteErr)
+                        }
+                    })
+                }
+                resolve()
+            })
+        })
     }
 
     private splitAudio = (): Promise<string> => {
@@ -110,8 +131,8 @@ export class AudioProcess {
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (error, stdout, stderr) => {
                 if (error || stderr || stdout.indexOf(`Status code: 0`) < 0) {
-                    this.status = Statuses.ERRORRED
-                    reject(error || stderr)
+                    this.status = Statuses.ERRORED
+                    reject(error + stderr)
                 } else {
                     resolve(stdout)
                 }
@@ -136,7 +157,7 @@ export class AudioProcess {
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (error, stdout, stderr) => {
                 if (error) {
-                    this.status = Statuses.ERRORRED
+                    this.status = Statuses.ERRORED
                     reject(error + stderr)
                 } else {
                     resolve(stdout)
@@ -146,6 +167,7 @@ export class AudioProcess {
     }
 
     private removeExtraFiles = (): Promise<void> => {
+        console.log("removing extra")
         const keepFiles = Array.from(this.isolate).concat(Array.from(this.remove).map((track) => "no" + track))
         return new Promise<string[]>((resolve, reject) => {
                 fs.readdir(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
@@ -162,7 +184,7 @@ export class AudioProcess {
                     if (keepFiles.indexOf(noExtension) < 0) {
                         this.removeAtPath(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}/${file}`)
                             .catch((err) => {
-                                throw err
+                                return Promise.reject(err)
                             })
                     }
                 });

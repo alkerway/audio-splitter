@@ -14,6 +14,11 @@ app.use((req, res, next) => {
 
 app.use(express.json())
 
+process.on("unhandledRejection", (reason, p) => {
+    console.log("Unhandled Rejection at: Promise", p, "reason:", reason);
+    // application specific logging, throwing an error, or other logic here
+});
+
 routes.register( app )
 app.use(cors())
 // start the Express server

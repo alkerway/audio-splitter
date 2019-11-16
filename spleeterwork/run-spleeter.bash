@@ -42,6 +42,6 @@ echo "Status code: ${status_code}"
 if [ "$status_code" -ne 0 ]
 then
   mkdir -p ${SPLEETERPATH}/logs/${OUTPUTFOLDER}
-  docker logs $containerid >& ${SPLEETERPATH}/logs/${OUTPUTFOLDER}/$FILENAME.log
+  docker logs $containerid > ${SPLEETERPATH}/logs/${OUTPUTFOLDER}/$FILENAME.log
 fi
 docker container rm $containerid

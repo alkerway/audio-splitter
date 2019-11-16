@@ -8,7 +8,10 @@ export const getfiles = async (req: Request, res: Response) => {
     // console.log(req.body)
     if (processname) {
         const process = ProcessStore.getById(processname)
-        if (process && (process.status === Statuses.COMPLETE || process.status === Statuses.SENT)) {
+        if (process &&
+            (process.status === Statuses.COMPLETE ||
+                process.status === Statuses.SENT ||
+                process.status === Statuses.ERRORED)) {
             const filepath = process.getFileToDownload()
             if (!filepath) {
                 return res.status(400).json({
@@ -16,7 +19,9 @@ export const getfiles = async (req: Request, res: Response) => {
                 })
             }
             res.download(filepath)
-            process.status = Statuses.SENT
+            if (process.status !== Statuses.ERRORED) {
+                process.status = Statuses.SENT
+            }
             process.scheduleCleanup(CLEANUP_AFTER_SEND)
         } else {
             return res.status(400).send({
