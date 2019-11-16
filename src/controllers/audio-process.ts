@@ -53,7 +53,7 @@ export class AudioProcess {
     }
 
     public getFileToDownload = (): string | null => {
-        if (this.status === Statuses.COMPLETE) {
+        if (this.status === Statuses.COMPLETE || this.status === Statuses.SENT) {
             const filepath = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
             console.log(filepath)
             return filepath
