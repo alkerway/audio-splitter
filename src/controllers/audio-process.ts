@@ -30,7 +30,7 @@ export class AudioProcess {
     public run = () => {
         this.splitAudio()
             .then(() => {
-                console.log("building partial")
+                // console.log("building partial")
                 if (this.remove.size) {
                     return this.buildPartialTracks()
                 }
@@ -45,11 +45,11 @@ export class AudioProcess {
                 this.status = Statuses.COMPLETE
             })
             .catch((err) => {
-                console.log("on catch error")
+                // console.log("on catch error")
                 this.writeErrorToLogFile(err)
             })
             .finally(() => {
-                console.log("scheduling cleanup")
+                // console.log("scheduling cleanup")
                 this.scheduleCleanup(CLEANUP_AFTER_COMPLETE)
             })
     }
@@ -126,7 +126,7 @@ export class AudioProcess {
             ` -o=${this.outputDirectory}` +
             ` --spleeterpath=${this.pathToSpleeterDir}/spleeterwork` +
             ` -u=$(id -u)`
-        console.log("splitting audio")
+        // console.log("splitting audio")
         this.status = Statuses.SPLITTING_AUDIO
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (error, stdout, stderr) => {
@@ -167,7 +167,7 @@ export class AudioProcess {
     }
 
     private removeExtraFiles = (): Promise<void> => {
-        console.log("removing extra")
+        // console.log("removing extra")
         const keepFiles = Array.from(this.isolate).concat(Array.from(this.remove).map((track) => "no" + track))
         return new Promise<string[]>((resolve, reject) => {
                 fs.readdir(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
