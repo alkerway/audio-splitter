@@ -62,7 +62,6 @@ export class AudioProcess {
     }
 
     public clean = () => {
-        console.log("cleaning up")
         const fileToUnlink = `${this.pathToSpleeterDir}/spleeterwork/input/${this.name}`
         const dirToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`
         const zipToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
@@ -91,7 +90,6 @@ export class AudioProcess {
     public getFileToDownload = (): string | null => {
         if (this.status === Statuses.COMPLETE || this.status === Statuses.SENT) {
             const filepath = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
-            console.log(filepath)
             return filepath
         } else if (this.status === Statuses.ERRORRED) {
             return `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}/${this.name}.log`
@@ -107,7 +105,7 @@ export class AudioProcess {
             ` -o=${this.outputDirectory}` +
             ` --spleeterpath=${this.pathToSpleeterDir}/spleeterwork` +
             ` -u=$(id -u)`
-        console.log(command)
+        console.log("splitting audio")
         this.status = Statuses.SPLITTING_AUDIO
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (error, stdout, stderr) => {
@@ -115,7 +113,6 @@ export class AudioProcess {
                     this.status = Statuses.ERRORRED
                     reject(error || stderr)
                 } else {
-                    console.log("stdout", stdout)
                     resolve(stdout)
                 }
             })
@@ -142,7 +139,6 @@ export class AudioProcess {
                     this.status = Statuses.ERRORRED
                     reject(error + stderr)
                 } else {
-                    console.log("stdout", stdout)
                     resolve(stdout)
                 }
             })

@@ -5,8 +5,6 @@ import {AudioProcessConfig, Stem} from "../models/AudioProcessConfig";
 
 export const upload = async (req: Request, res: Response) => {
     MulterUpload(req, res, (err: Error) => {
-        console.log(req.body)
-
         if (err) {
             return res.status(500).json(err)
         }
