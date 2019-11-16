@@ -29,10 +29,13 @@ export class AudioProcess {
                 console.log(logs)
             })
             .then(() => {
-                // if (this.remove.size) {
-                //
-                // }
-                console.log("removing tracks")
+                if (this.remove.size) {
+                    return this.buildPartialTracks()
+                }
+            })
+            .catch((logs: string) => {
+                // write to file
+                console.log(logs)
             })
             .then(this.removeExtraFiles)
             .then(() => {
@@ -75,6 +78,33 @@ export class AudioProcess {
                 if (error || stderr || stdout.indexOf(`Status code: 0`) < 0) {
                     this.status = Statuses.ERRORRED
                     reject(error || stderr)
+                } else {
+                    console.log("stdout", stdout)
+                    resolve(stdout)
+                }
+            })
+        })
+    }
+
+    private buildPartialTracks = (): Promise<string[]> => {
+        this.status = Statuses.BUILDING_PARTIAL_FILES
+        const promises: Array<Promise<string>> = []
+        for (const track of this.remove) {
+            const command = `sh ${this.pathToSpleeterDir}/spleeterwork/build-partial-track.bash` +
+                ` --spleeterpath=${this.pathToSpleeterDir}/spleeterwork` +
+                ` -r=${track}` +
+                ` -f=output/${this.outputDirectory}`
+            promises.push(this.buildTrackForRemovedFile(command))
+        }
+        return Promise.all(promises)
+    }
+
+    private buildTrackForRemovedFile = (command: string) => {
+        return new Promise<string>((resolve, reject) => {
+            child_process.exec(command, (error, stdout, stderr) => {
+                if (error) {
+                    this.status = Statuses.ERRORRED
+                    reject(error + stderr)
                 } else {
                     console.log("stdout", stdout)
                     resolve(stdout)

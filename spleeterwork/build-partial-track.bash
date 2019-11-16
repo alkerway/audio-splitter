@@ -15,11 +15,11 @@ case $i in
     ;;
 esac
 done
-echo FILELOCATION = ${FILELOCATION}
-echo REMOVE = ${REMOVE}
-echo SPLEETERPATH = ${SPLEETERPATH}
+#echo FILELOCATION = ${FILELOCATION}
+#echo REMOVE = ${REMOVE}
+#echo SPLEETERPATH = ${SPLEETERPATH}
 
-yourfilenames=`ls $SPLEETERPATH/spleeterwork/$FILELOCATION`
+yourfilenames=`ls $SPLEETERPATH/$FILELOCATION`
 command=""
 numinputs=0
 for eachfile in $yourfilenames
@@ -27,8 +27,8 @@ do
   if [ "${eachfile%%.*}" != $REMOVE ]
   then
     numinputs=$((numinputs+1))
-    command="${command} -i $SPLEETERPATH/spleeterwork/$FILELOCATION/$eachfile"
+    command="${command} -i $SPLEETERPATH/$FILELOCATION/$eachfile"
    fi
 done
-command="${command} -filter_complex amix=inputs=$numinputs:duration=longest $SPLEETERPATH/spleeterwork/$FILELOCATION/no$REMOVE.wav"
+command="${command} -filter_complex amix=inputs=$numinputs:duration=longest $SPLEETERPATH/$FILELOCATION/no$REMOVE.wav"
 $(ffmpeg $command)
