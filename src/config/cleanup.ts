@@ -1,0 +1,2 @@
+export const CLEANUP_AFTER_SEND = 10
+export const CLEANUP_AFTER_COMPLETE = 30

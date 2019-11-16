@@ -1,6 +1,8 @@
 import archiver from "archiver"
 import * as child_process from "child_process";
 import * as fs from "fs";
+import rimraf from "rimraf"
+import { CLEANUP_AFTER_COMPLETE } from "../config/cleanup"
 import { AudioProcessConfig, Statuses } from "../models"
 
 export class AudioProcess {
@@ -11,8 +13,10 @@ export class AudioProcess {
     public outputDirectory: string
     public isolate: Set<string>
     public remove: Set<string>
+    private cleanupTimer: NodeJS.Timer | null;
+    private onDestroy: (name: string) => void
 
-    constructor(config: AudioProcessConfig) {
+    constructor(config: AudioProcessConfig, onDestroy: (name: string) => void) {
         this.name = config.name
         this.stems = config.stems
         this.remove = config.remove
@@ -20,6 +24,7 @@ export class AudioProcess {
         this.pathToSpleeterDir = config.pathToSpleeterDir
         this.status = Statuses.INITIALIZED
         this.outputDirectory = this.name.split(".")[0]
+        this.onDestroy = onDestroy;
     }
 
     public run = () => {
@@ -44,12 +49,43 @@ export class AudioProcess {
             })
             .then(() => {
                 this.status = Statuses.COMPLETE
+                this.scheduleCleanup(CLEANUP_AFTER_COMPLETE)
             })
         return runPromise
     }
 
+    public scheduleCleanup = (seconds: number) => {
+        if (this.cleanupTimer) {
+            clearInterval(this.cleanupTimer)
+        }
+        this.cleanupTimer = setTimeout(this.clean, seconds * 1000)
+    }
+
     public clean = () => {
         console.log("cleaning up")
+        const fileToUnlink = `${this.pathToSpleeterDir}/spleeterwork/input/${this.name}`
+        const dirToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`
+        const zipToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
+        const logToUnlink = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}/${this.name}.log`
+        Promise.all([
+            this.removeAtPath(fileToUnlink),
+            this.removeAtPath(dirToUnlink),
+            this.removeAtPath(zipToUnlink),
+            this.removeAtPath(logToUnlink)
+        ])
+            .then(() => this.onDestroy(this.name))
+    }
+
+    public removeAtPath = (path: string): Promise<void> => {
+        return new Promise<void>((resolve, reject) => {
+            rimraf(path, (err) => {
+                if (err) {
+                    return reject(err)
+                } else {
+                    resolve()
+                }
+            })
+        })
     }
 
     public getFileToDownload = (): string | null => {
@@ -128,12 +164,10 @@ export class AudioProcess {
                 files.forEach((file) => {
                     const noExtension = file.split(".")[0]
                     if (keepFiles.indexOf(noExtension) < 0) {
-                        fs.unlink(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}/${file}`,
-                            (unlinkError) => {
-                            if (unlinkError) {
-                                throw (unlinkError)
-                            }
-                        })
+                        this.removeAtPath(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}/${file}`)
+                            .catch((err) => {
+                                throw err
+                            })
                     }
                 });
             })
