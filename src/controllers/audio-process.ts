@@ -32,8 +32,9 @@ export class AudioProcess {
                 // if (this.remove.size) {
                 //
                 // }
-                this.removeExtraFiles()
+                console.log("removing tracks")
             })
+            .then(this.removeExtraFiles)
             .then(() => {
                 this.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
                     `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`)
