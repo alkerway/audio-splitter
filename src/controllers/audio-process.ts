@@ -132,7 +132,7 @@ export class AudioProcess {
             child_process.exec(command, (error, stdout, stderr) => {
                 if (error || stderr || stdout.indexOf(`Status code: 0`) < 0) {
                     this.status = Statuses.ERRORED
-                    reject(error + stderr)
+                    reject(error + stderr + stdout)
                 } else {
                     resolve(stdout)
                 }
