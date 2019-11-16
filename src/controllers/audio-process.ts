@@ -9,10 +9,14 @@ export class AudioProcess {
     public pathToSpleeterDir: string
     public status: Statuses
     public outputDirectory: string
+    public isolate: Set<string>
+    public remove: Set<string>
 
     constructor(config: AudioProcessConfig) {
         this.name = config.name
         this.stems = config.stems
+        this.remove = config.remove
+        this.isolate = config.isolate
         this.pathToSpleeterDir = config.pathToSpleeterDir
         this.status = Statuses.INITIALIZED
         this.outputDirectory = this.name.split(".")[0]
@@ -25,8 +29,17 @@ export class AudioProcess {
                 console.log(logs)
             })
             .then(() => {
+                // if (this.remove.size) {
+                //
+                // }
+                this.removeExtraFiles()
+            })
+            .then(() => {
                 this.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
                     `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`)
+            })
+            .then(() => {
+                this.status = Statuses.COMPLETE
             })
         return runPromise
     }
@@ -62,7 +75,6 @@ export class AudioProcess {
                     this.status = Statuses.ERRORRED
                     reject(error || stderr)
                 } else {
-                    this.status = Statuses.COMPLETE
                     console.log("stdout", stdout)
                     resolve(stdout)
                 }
@@ -70,10 +82,36 @@ export class AudioProcess {
         })
     }
 
+    private removeExtraFiles = (): Promise<void> => {
+        const keepFiles = Array.from(this.isolate).concat(Array.from(this.remove).map((track) => "no" + track))
+        return new Promise<string[]>((resolve, reject) => {
+                fs.readdir(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
+                    (directoryReadError, files: string[]) => {
+                    if (directoryReadError) {
+                        reject(directoryReadError)
+                    }
+                    resolve(files)
+                });
+            })
+            .then((files: string[]) => {
+                files.forEach((file) => {
+                    const noExtension = file.split(".")[0]
+                    if (keepFiles.indexOf(noExtension) < 0) {
+                        fs.unlink(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}/${file}`,
+                            (unlinkError) => {
+                            if (unlinkError) {
+                                throw (unlinkError)
+                            }
+                        })
+                    }
+                });
+            })
+    }
+
     private zipFiles = (source: string, outputname: string): Promise<string> => {
         const archive = archiver("zip", { zlib: { level: 9 }});
         const stream = fs.createWriteStream(outputname);
-        console.log("ziupping", source, outputname)
+        this.status = Statuses.ZIPPING
         return new Promise((resolve, reject) => {
             archive
                 .directory(source, false)
