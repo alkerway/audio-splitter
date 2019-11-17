@@ -28,7 +28,7 @@ done
 # echo SPLEETERPATH = ${SPLEETERPATH}
 
 #containername=${FILENAME%%.*}$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 13)
-containerid=$(sudo docker run -d \
+containerid=$(docker run -d \
     -v ${SPLEETERPATH}/input:/input \
     -v ${SPLEETERPATH}/output:/output \
     -v ${SPLEETERPATH}/models:/model \
