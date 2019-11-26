@@ -1,9 +1,8 @@
-import archiver from "archiver"
 import * as child_process from "child_process";
 import * as fs from "fs";
-import rimraf from "rimraf"
 import { CLEANUP_AFTER_COMPLETE } from "../config/cleanup"
 import { AudioProcessConfig, Statuses } from "../models"
+import FSUtil from "../utils/file-system-util"
 
 export class AudioProcess {
     public name: string
@@ -29,28 +28,12 @@ export class AudioProcess {
 
     public run = () => {
         this.splitAudio()
-            .then(() => {
-                // console.log("building partial")
-                if (this.remove.size) {
-                    return this.buildPartialTracks()
-                }
-            })
+            .then(this.buildPartialTracks)
             .then(this.removeExtraFiles)
-            .then(() => {
-                return this.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
-                    `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`)
-            })
-            .then(() => {
-                this.status = Statuses.COMPLETE
-            })
-            .catch((err) => {
-                // console.log("on catch error")
-                this.writeErrorToLogFile(err)
-            })
-            .finally(() => {
-                // console.log("scheduling cleanup")
-                this.scheduleCleanup(CLEANUP_AFTER_COMPLETE)
-            })
+            .then(this.zipFiles)
+            .then(() => this.status = Statuses.COMPLETE)
+            .catch(this.onError)
+            .finally(() => this.scheduleCleanup(CLEANUP_AFTER_COMPLETE))
     }
 
     public scheduleCleanup = (seconds: number) => {
@@ -66,56 +49,20 @@ export class AudioProcess {
         const zipToUnlink = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
         const logToUnlink = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}`
         Promise.all([
-            this.removeAtPath(fileToUnlink),
-            this.removeAtPath(dirToUnlink),
-            this.removeAtPath(zipToUnlink),
-            this.removeAtPath(logToUnlink)
-        ])
-            .then(() => this.onDestroy(this.name))
-    }
-
-    public removeAtPath = (path: string): Promise<void> => {
-        return new Promise<void>((resolve, reject) => {
-            rimraf(path, (err) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    resolve()
-                }
-            })
-        })
+            FSUtil.removeAtPath(fileToUnlink),
+            FSUtil.removeAtPath(dirToUnlink),
+            FSUtil.removeAtPath(zipToUnlink),
+            FSUtil.removeAtPath(logToUnlink)
+        ]).then(() => this.onDestroy(this.name))
     }
 
     public getFileToDownload = (): string | null => {
         if (this.status === Statuses.COMPLETE || this.status === Statuses.SENT) {
-            const filepath = `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
-            return filepath
+            return `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`
         } else if (this.status === Statuses.ERRORED) {
             return `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}/${this.name}.log`
-        } else {
-            return null
         }
-    }
-
-    private writeErrorToLogFile = (text: string) => {
-        this.status = Statuses.ERRORED
-        console.log("writing to log file", text)
-        const errorDir = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}`
-        const errorPath = `${errorDir}/${this.name}.log`
-        return new Promise<void>((resolve, reject) => {
-            fs.mkdir(errorDir, (err) => {
-                if (err && err.code !== "EEXIST") {
-                    console.log("error making log dir", err)
-                } else {
-                    fs.writeFile(errorPath, text, (fileWriteErr) => {
-                        if (fileWriteErr) {
-                            console.log("Error writing to log file!!", fileWriteErr)
-                        }
-                    })
-                }
-                resolve()
-            })
-        })
+        return null
     }
 
     private splitAudio = (): Promise<string> => {
@@ -125,7 +72,6 @@ export class AudioProcess {
             ` -o=${this.outputDirectory}` +
             ` --spleeterpath=${this.pathToSpleeterDir}/spleeterwork` +
             ` -u=$(id -u)`
-        // console.log("splitting audio")
         this.status = Statuses.SPLITTING_AUDIO
         return new Promise<string>((resolve, reject) => {
             child_process.exec(command, (error, stdout, stderr) => {
@@ -139,17 +85,20 @@ export class AudioProcess {
         })
     }
 
-    private buildPartialTracks = (): Promise<string[]> => {
-        this.status = Statuses.BUILDING_PARTIAL_FILES
-        const promises: Array<Promise<string>> = []
-        for (const track of this.remove) {
-            const command = `sh ${this.pathToSpleeterDir}/spleeterwork/build-partial-track.bash` +
-                ` --spleeterpath=${this.pathToSpleeterDir}/spleeterwork` +
-                ` -r=${track}` +
-                ` -f=output/${this.outputDirectory}`
-            promises.push(this.buildTrackForRemovedFile(command))
+    private buildPartialTracks = (): Promise<string[]> | null => {
+        if (this.remove.size) {
+            this.status = Statuses.BUILDING_PARTIAL_FILES
+            const promises: Array<Promise<string>> = []
+            for (const track of this.remove) {
+                const command = `sh ${this.pathToSpleeterDir}/spleeterwork/build-partial-track.bash` +
+                    ` --spleeterpath=${this.pathToSpleeterDir}/spleeterwork` +
+                    ` -r=${track}` +
+                    ` -f=output/${this.outputDirectory}`
+                promises.push(this.buildTrackForRemovedFile(command))
+            }
+            return Promise.all(promises)
         }
-        return Promise.all(promises)
+        return null
     }
 
     private buildTrackForRemovedFile = (command: string) => {
@@ -165,8 +114,13 @@ export class AudioProcess {
         })
     }
 
+    private zipFiles = (): Promise<void> => {
+        this.status = Statuses.ZIPPING
+        return FSUtil.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
+            `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`)
+    }
+
     private removeExtraFiles = (): Promise<void> => {
-        // console.log("removing extra")
         const keepFiles = Array.from(this.isolate).concat(Array.from(this.remove).map((track) => "no" + track))
         return new Promise<string[]>((resolve, reject) => {
                 fs.readdir(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
@@ -181,28 +135,15 @@ export class AudioProcess {
                 files.forEach((file) => {
                     const noExtension = file.split(".")[0]
                     if (keepFiles.indexOf(noExtension) < 0) {
-                        this.removeAtPath(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}/${file}`)
-                            .catch((err) => {
-                                return Promise.reject(err)
-                            })
+                        FSUtil.removeAtPath(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}/${file}`)
+                            .catch(Promise.reject)
                     }
                 });
             })
     }
-
-    private zipFiles = (source: string, outputname: string): Promise<void> => {
-        const archive = archiver("zip", { zlib: { level: 9 }});
-        const stream = fs.createWriteStream(outputname);
-        this.status = Statuses.ZIPPING
-        return new Promise((resolve, reject) => {
-            archive
-                .directory(source, false)
-                .on("error", (err: Error) => reject(err))
-                .pipe(stream)
-
-            archive.finalize().then(() => {
-                resolve()
-            });
-        })
+    private onError = (err: string) => {
+        this.status = Statuses.ERRORED
+        const errorDir = `${this.pathToSpleeterDir}/spleeterwork/logs/${this.outputDirectory}`
+        FSUtil.writeErrorToLogFile(err, errorDir, this.name)
     }
 }
