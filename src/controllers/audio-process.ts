@@ -37,8 +37,7 @@ export class AudioProcess {
             })
             .then(this.removeExtraFiles)
             .then(() => {
-                console.log("zipping")
-                this.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
+                return this.zipFiles(`${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}`,
                     `${this.pathToSpleeterDir}/spleeterwork/output/${this.outputDirectory}.zip`)
             })
             .then(() => {
@@ -191,7 +190,7 @@ export class AudioProcess {
             })
     }
 
-    private zipFiles = (source: string, outputname: string): Promise<string> => {
+    private zipFiles = (source: string, outputname: string): Promise<void> => {
         const archive = archiver("zip", { zlib: { level: 9 }});
         const stream = fs.createWriteStream(outputname);
         this.status = Statuses.ZIPPING
@@ -201,8 +200,9 @@ export class AudioProcess {
                 .on("error", (err: Error) => reject(err))
                 .pipe(stream)
 
-            stream.on("close", () => resolve());
-            archive.finalize();
+            archive.finalize().then(() => {
+                resolve()
+            });
         })
     }
 }
