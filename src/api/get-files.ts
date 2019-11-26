@@ -15,6 +15,7 @@ export const getfiles = async (req: Request, res: Response) => {
             const filepath = process.getFileToDownload()
             if (!filepath) {
                 return res.status(400).json({
+                    name: processname,
                     message: "not ready yet"
                 })
             }
@@ -25,11 +26,13 @@ export const getfiles = async (req: Request, res: Response) => {
             process.scheduleCleanup(CLEANUP_AFTER_SEND)
         } else {
             return res.status(400).send({
+                name: processname,
                 message: "no process found for name"
             })
         }
     } else {
         return res.status(400).send({
+            name: processname,
             message: "no process in request"
         })
     }
